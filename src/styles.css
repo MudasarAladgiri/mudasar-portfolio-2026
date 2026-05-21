@@ -949,13 +949,13 @@ h1, h2, h3, h4, p { margin-top: 0; }
 
 .project-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 900px) minmax(260px, 360px);
-  gap: clamp(18px, 3vw, 28px);
+  grid-template-columns: minmax(0, 650px) minmax(260px, 320px);
+  gap: clamp(20px, 3vw, 32px);
   align-items: start;
-  width: 100%;
-  max-width: 1320px;
+  width: min(1100px, calc(100% - 40px));
+  max-width: 1100px;
   margin-inline: auto;
-  padding-inline: clamp(12px, 2vw, 18px);
+  padding-inline: 0;
   overflow: hidden;
   justify-content: center;
 }
@@ -965,14 +965,14 @@ h1, h2, h3, h4, p { margin-top: 0; }
   gap: 14px;
   min-width: 0;
   width: 100%;
-  max-width: 900px;
+  max-width: 650px;
   justify-self: center;
 }
 
 .detail-media {
   width: 100%;
-  max-width: 900px;
-  max-height: 520px;
+  max-width: 650px;
+  max-height: 420px;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -986,14 +986,14 @@ h1, h2, h3, h4, p { margin-top: 0; }
 .detail-media iframe,
 .detail-media .video-poster {
   max-width: 100%;
-  max-height: 520px;
+  max-height: 420px;
   object-fit: contain;
 }
 
 .project-detail-grid > .info-panel {
   width: 100%;
   min-width: 0;
-  max-width: 360px;
+  max-width: 320px;
   justify-self: stretch;
   overflow-wrap: anywhere;
 }
@@ -1669,7 +1669,8 @@ input:focus, textarea:focus, select:focus {
   .project-detail-grid {
     grid-template-columns: 1fr;
     overflow: visible;
-    max-width: 940px;
+    width: min(720px, calc(100% - 32px));
+    max-width: 720px;
   }
 
   .project-detail-grid > .info-panel {
@@ -1677,7 +1678,7 @@ input:focus, textarea:focus, select:focus {
   }
 
   .project-detail-gallery {
-    max-width: 900px;
+    max-width: 650px;
   }
 }
 
@@ -1709,6 +1710,7 @@ input:focus, textarea:focus, select:focus {
   }
   .project-detail-grid {
     overflow: visible;
+    width: min(100% - 24px, 650px);
   }
   .project-detail-grid > .info-panel {
     max-width: 100%;
@@ -1718,14 +1720,14 @@ input:focus, textarea:focus, select:focus {
   }
   .detail-media {
     min-height: 0;
-    max-height: 420px;
+    max-height: 360px;
   }
 
   .detail-media img,
   .detail-media video,
   .detail-media iframe,
   .detail-media .video-poster {
-    max-height: 420px;
+    max-height: 360px;
   }
   .lightbox-arrow {
     width: 44px;
