@@ -1,0 +1,17 @@
+<svg width="1200" height="820" viewBox="0 0 1200 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="820" rx="44" fill="#071713"/>
+  <rect x="106" y="96" width="988" height="628" rx="38" fill="#0c241d"/>
+  <rect x="154" y="144" width="560" height="318" rx="28" fill="url(#frame)"/>
+  <path d="m382 246 134 70-134 72V246Z" fill="#f7fffb" fill-opacity=".86"/>
+  <rect x="758" y="144" width="284" height="46" rx="16" fill="#34d399"/>
+  <rect x="758" y="238" width="230" height="22" rx="11" fill="#d1fae5" fill-opacity=".32"/>
+  <rect x="758" y="286" width="178" height="22" rx="11" fill="#d1fae5" fill-opacity=".22"/>
+  <rect x="154" y="526" width="888" height="56" rx="18" fill="#061811"/>
+  <rect x="186" y="540" width="220" height="28" rx="14" fill="#34d399"/>
+  <rect x="430" y="540" width="168" height="28" rx="14" fill="#b7f7d4" fill-opacity=".42"/>
+  <rect x="622" y="540" width="300" height="28" rx="14" fill="#10b981" fill-opacity=".52"/>
+  <text x="934" y="652" fill="#d1fae5" font-family="Inter, Arial" font-size="62" font-weight="900">Pr</text>
+  <defs>
+    <linearGradient id="frame" x1="154" y1="144" x2="714" y2="462"><stop stop-color="#d1fae5"/><stop offset=".45" stop-color="#34d399"/><stop offset="1" stop-color="#052e22"/></linearGradient>
+  </defs>
+</svg>

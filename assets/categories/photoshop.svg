@@ -1,0 +1,23 @@
+<svg width="1200" height="820" viewBox="0 0 1200 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="820" rx="44" fill="#071713"/>
+  <rect x="92" y="76" width="1016" height="668" rx="34" fill="#0c241d"/>
+  <rect x="132" y="122" width="690" height="528" rx="26" fill="url(#photo)"/>
+  <path d="M132 536c132-126 254-146 392-26 72-76 154-92 298 22v118H132V536Z" fill="#082018" fill-opacity=".88"/>
+  <circle cx="356" cy="292" r="116" fill="#f7fffb" fill-opacity=".28"/>
+  <circle cx="388" cy="274" r="48" fill="#34d399" fill-opacity=".42"/>
+  <rect x="858" y="138" width="184" height="38" rx="14" fill="#d1fae5" fill-opacity=".82"/>
+  <rect x="858" y="208" width="202" height="18" rx="9" fill="#d1fae5" fill-opacity=".32"/>
+  <rect x="858" y="244" width="150" height="18" rx="9" fill="#d1fae5" fill-opacity=".22"/>
+  <rect x="858" y="306" width="194" height="170" rx="22" fill="#071713" stroke="#34d399" stroke-opacity=".3"/>
+  <rect x="886" y="338" width="138" height="16" rx="8" fill="#34d399" fill-opacity=".68"/>
+  <rect x="886" y="378" width="110" height="16" rx="8" fill="#d1fae5" fill-opacity=".26"/>
+  <rect x="886" y="418" width="126" height="16" rx="8" fill="#d1fae5" fill-opacity=".18"/>
+  <text x="896" y="594" fill="#d1fae5" font-family="Inter, Arial" font-size="62" font-weight="900">Ps</text>
+  <defs>
+    <linearGradient id="photo" x1="132" y1="122" x2="822" y2="650">
+      <stop stop-color="#154734"/>
+      <stop offset=".45" stop-color="#2fbf85"/>
+      <stop offset="1" stop-color="#071713"/>
+    </linearGradient>
+  </defs>
+</svg>
