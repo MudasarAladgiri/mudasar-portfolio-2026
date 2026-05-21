@@ -63,8 +63,17 @@ function mergeDefaults(data) {
   }
   delete merged.settings.adminPassword;
   Object.assign(merged.profile, data.profile || {});
-  if (!data.profile?.photo || data.profile.photo === "/assets/profile-photo.svg" || data.profile.photo === "/assets/mudasar-profile.png") {
+  if (
+    !data.profile?.photo ||
+    data.profile.photo === "/assets/profile-photo.svg" ||
+    data.profile.photo === "/assets/mudasar-profile.png" ||
+    data.profile.photo === "/assets/mudasar-profile-optimized.webp"
+  ) {
     merged.profile.photo = portfolioSeed.profile.photo;
+  }
+  if (!data.profile?.cv || data.profile.cv === "/assets/cv/latest-cv.pdf") {
+    merged.profile.cv = portfolioSeed.profile.cv;
+    merged.profile.cvFileName = portfolioSeed.profile.cvFileName;
   }
   if (!data.profile?.linkedin || data.profile.linkedin === "https://www.linkedin.com/in/mudasar-aladgiri") {
     merged.profile.linkedin = portfolioSeed.profile.linkedin;
@@ -845,6 +854,7 @@ function CVEditor() {
         <p class="eyebrow">Current CV</p>
         <h3>${escapeHtml(fileName)}</h3>
         <p>${escapeHtml(p.cv)}</p>
+        <p class="form-note">Production note: on Vercel, replace the committed file in <strong>public/assets/cv/</strong> and use a path like <strong>/assets/cv/Mudasar-CV.pdf</strong>. Browser uploads are local only.</p>
       </div>
       <div class="cv-actions">
         <label class="btn primary upload-label">
@@ -890,7 +900,7 @@ function PersonalEditor() {
       <div>
         <p class="eyebrow">Profile Picture</p>
         <h3>Current profile image</h3>
-        <p>Upload a JPG, PNG, or WEBP image. It will update the hero and future profile cards automatically.</p>
+        <p>For Vercel, commit your image in <strong>public/assets/profile/</strong> and use a URL like <strong>/assets/profile/profile.webp</strong>. Browser uploads preview locally only and do not persist after deployment.</p>
         <div class="profile-upload-actions">
           <label class="btn soft upload-label">Upload / Change Picture
             <input type="file" accept="image/jpeg,image/png,image/webp" data-profile-upload />
@@ -909,7 +919,7 @@ function PersonalEditor() {
       <input name="location" placeholder="Address / location" value="${escapeHtml(p.location)}" required />
       <input name="linkedin" placeholder="LinkedIn URL" value="${escapeHtml(p.linkedin)}" />
       <input name="portfolio" placeholder="Portfolio URL" value="${escapeHtml(p.portfolio)}" />
-      <input name="photo" placeholder="Profile photo path or uploaded data URL" value="${escapeHtml(p.photo)}" />
+      <input name="photo" placeholder="/assets/profile/profile.webp or hosted image URL" value="${escapeHtml(p.photo)}" />
       <textarea name="summary" rows="4" placeholder="Profile summary" required>${escapeHtml(p.summary)}</textarea>
       <button class="btn primary" type="submit">Save Personal Details</button>
     </form>
@@ -1019,16 +1029,17 @@ function ProjectEditor() {
       <select name="category" required>${categories.map((category) => `<option value="${category.label}">${category.label}</option>`).join("")}</select>
       <input name="description" placeholder="Description" required />
       <input name="tools" placeholder="Tools used" required />
+      <p class="form-note">Production image tip: commit project images in <strong>public/assets/projects/</strong> and paste paths like <strong>/assets/projects/project-name.webp</strong>. File uploads are browser-local previews and will not become Vercel files.</p>
       <label>Image 1
-        <input name="image1" placeholder="Main thumbnail image URL" />
+        <input name="image1" placeholder="/assets/projects/project-main.webp or hosted image URL" />
         <input name="imageFile1" type="file" accept="image/*" />
       </label>
       <label>Image 2
-        <input name="image2" placeholder="Second image URL" />
+        <input name="image2" placeholder="/assets/projects/project-2.webp or hosted image URL" />
         <input name="imageFile2" type="file" accept="image/*" />
       </label>
       <label>Image 3
-        <input name="image3" placeholder="Third image URL" />
+        <input name="image3" placeholder="/assets/projects/project-3.webp or hosted image URL" />
         <input name="imageFile3" type="file" accept="image/*" />
       </label>
       <input name="media" placeholder="Video URL: MP4, YouTube, or Vimeo. Keep blank for image project." />

@@ -1,0 +1,12 @@
+<svg width="1200" height="820" viewBox="0 0 1200 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="820" rx="44" fill="#071713"/>
+  <rect x="112" y="94" width="976" height="632" rx="36" fill="#0c241d"/>
+  <rect x="172" y="154" width="856" height="512" rx="30" fill="#0a1f18"/>
+  <path d="M250 558c96-116 214-184 354-204 134-20 248 10 342 92v114H250v-2Z" fill="#0f3c2c"/>
+  <path d="M280 516c126-138 266-214 420-228 98-8 180 10 246 54v92c-106-58-228-70-366-36-98 24-190 66-276 126l-24-8Z" fill="#34d399"/>
+  <circle cx="386" cy="286" r="86" fill="#d1fae5" fill-opacity=".76"/>
+  <path d="M664 196c100 40 168 106 204 198-104-22-186-84-244-188l40-10Z" fill="#b7f7d4" fill-opacity=".86"/>
+  <path d="M628 560c-26-118 0-224 78-318 54 108 52 214-8 318h-70Z" fill="#10b981"/>
+  <rect x="214" y="190" width="110" height="44" rx="16" fill="#d1fae5" fill-opacity=".16"/>
+  <text x="878" y="618" fill="#d1fae5" font-family="Inter, Arial" font-size="62" font-weight="900">Ai</text>
+</svg>

@@ -15,9 +15,9 @@ export const portfolioSeed = {
     phoneIndia: "+91 8857918537",
     portfolio: "https://mraladgiri.netlify.app/",
     linkedin: "https://www.linkedin.com/in/mudasar-aladgiri-98014a21b/",
-    cv: "/assets/cv/latest-cv.pdf",
+    cv: "/assets/cv/Mudasar-CV.pdf",
     cvFileName: "Mudasar-Aladgiri-CV-2026.pdf",
-    photo: "/assets/mudasar-profile-optimized.webp",
+    photo: "/assets/profile/profile.webp",
     socialLinks: [
       { label: "Behance", url: "" },
       { label: "Instagram", url: "" }
@@ -136,8 +136,8 @@ export const portfolioSeed = {
       description: "Polished marketing visual with photo correction, contrast work, and premium layout treatment.",
       tools: "Photoshop",
       mediaType: "image",
-      media: "gradient",
-      images: []
+      media: "/assets/projects/photoshop-poster-retouching.svg",
+      images: ["/assets/projects/photoshop-poster-retouching.svg"]
     },
     {
       title: "Vector Brand Illustration",
@@ -145,8 +145,8 @@ export const portfolioSeed = {
       description: "Clean vector artwork and campaign illustration prepared for scalable brand use.",
       tools: "Illustrator",
       mediaType: "image",
-      media: "gradient",
-      images: []
+      media: "/assets/projects/illustrator-vector-brand.svg",
+      images: ["/assets/projects/illustrator-vector-brand.svg"]
     },
     {
       title: "CCTV Product Campaign",
@@ -154,8 +154,8 @@ export const portfolioSeed = {
       description: "Premium product brochure and launch creatives for a CCTV brand campaign.",
       tools: "InDesign, Photoshop, Illustrator",
       mediaType: "image",
-      media: "gradient",
-      images: []
+      media: "/assets/projects/indesign-cctv-brochure.svg",
+      images: ["/assets/projects/indesign-cctv-brochure.svg"]
     },
     {
       title: "Travel Platform UI Screens",
@@ -163,8 +163,8 @@ export const portfolioSeed = {
       description: "Responsive booking and promotion layouts for a travel marketing workflow.",
       tools: "Figma, Adobe XD, Photoshop",
       mediaType: "image",
-      media: "gradient",
-      images: []
+      media: "/assets/projects/uiux-travel-platform.svg",
+      images: ["/assets/projects/uiux-travel-platform.svg"]
     },
     {
       title: "Social Campaign Creatives",
@@ -172,8 +172,8 @@ export const portfolioSeed = {
       description: "Scroll-stopping banners and promotional post templates for digital platforms.",
       tools: "Photoshop, Illustrator",
       mediaType: "image",
-      media: "gradient",
-      images: []
+      media: "/assets/projects/social-campaign-creatives.svg",
+      images: ["/assets/projects/social-campaign-creatives.svg"]
     },
     {
       title: "Brand Identity Concepts",
@@ -181,8 +181,8 @@ export const portfolioSeed = {
       description: "Logo and brand system explorations for product and service-led businesses.",
       tools: "Illustrator, Photoshop",
       mediaType: "image",
-      media: "gradient",
-      images: []
+      media: "/assets/projects/branding-identity-concepts.svg",
+      images: ["/assets/projects/branding-identity-concepts.svg"]
     },
     {
       title: "Product Reel Edit",
@@ -191,7 +191,7 @@ export const portfolioSeed = {
       tools: "Premiere Pro, Photoshop",
       mediaType: "video",
       media: "gradient",
-      images: []
+      images: ["/assets/projects/premiere-product-reel.svg"]
     },
     {
       title: "Animated Launch Graphics",
@@ -200,7 +200,7 @@ export const portfolioSeed = {
       tools: "After Effects, Illustrator",
       mediaType: "video",
       media: "gradient",
-      images: []
+      images: ["/assets/projects/after-effects-launch-graphics.svg"]
     }
   ],
   services: [

@@ -56,6 +56,12 @@ function requestHandler(req, res) {
 
   const cleanPath = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
   let filePath = resolve(root, cleanPath === "/" ? "index.html" : cleanPath.slice(1));
+  if (cleanPath.startsWith("/assets/")) {
+    const publicAssetPath = resolve(root, "public", cleanPath.slice(1));
+    if (publicAssetPath.startsWith(resolve(root, "public")) && existsSync(publicAssetPath)) {
+      filePath = publicAssetPath;
+    }
+  }
 
   if (!filePath.startsWith(root)) {
     res.writeHead(403, securityHeaders("text/plain; charset=utf-8"));
@@ -170,12 +176,11 @@ function handleCVUpload(req, res) {
       return;
     }
 
-    const cvDir = join(root, "assets", "cv");
+    const cvDir = join(root, "public", "assets", "cv");
     mkdirSync(cvDir, { recursive: true });
-    writeFileSync(join(cvDir, "latest-cv.pdf"), filePart.content);
-    writeFileSync(join(cvDir, "latest-cv-name.txt"), fileName);
+    writeFileSync(join(cvDir, "Mudasar-CV.pdf"), filePart.content);
     sendJson(res, 200, {
-      path: "/assets/cv/latest-cv.pdf",
+      path: "/assets/cv/Mudasar-CV.pdf",
       fileName
     });
   });
