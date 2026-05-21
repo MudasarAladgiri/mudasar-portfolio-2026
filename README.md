@@ -24,15 +24,16 @@ Go to:
 http://localhost:4173/admin
 ```
 
-Admin changes are saved in browser `localStorage`, so the public site updates immediately in the same browser.
+Admin changes are saved to Supabase when these Vercel environment variables are configured:
 
-For production on Vercel, uploaded files from the admin dashboard do not become GitHub files. Add permanent media to the `public/assets` folder and paste paths such as:
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_CLOUDINARY_CLOUD_NAME`
+- `VITE_CLOUDINARY_UPLOAD_PRESET`
 
-- `/assets/profile/profile.webp`
-- `/assets/projects/project-name.webp`
-- `/assets/cv/Mudasar-CV.pdf`
+Run `supabase-schema.sql` in the Supabase SQL editor once, then create an admin user in Supabase Authentication. Use that email/password at `/login`.
 
-Then commit and push those files to GitHub so Vercel can deploy them.
+Cloudinary should use an unsigned upload preset. Admin project/profile/CV uploads go to Cloudinary and the returned URLs are saved in Supabase. If Supabase is not configured, the site falls back to bundled data and browser-local storage only.
 
 Security note: this admin area is a local/static-site editor. It is useful for editing your own copy in the browser, but it is not a secure production CMS for multiple users. For a public hosted admin panel, use a backend with server-side authentication and a database.
 

@@ -5,6 +5,13 @@ const visitorSettingsKey = "mudasar-visitor-settings";
 const authKey = "mudasar-admin-auth";
 const formspreeEndpoint = "";
 const adminSessionMs = 30 * 60 * 1000;
+const contentRowId = "main";
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const cloudinaryCloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "";
+const cloudinaryUploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "";
+const hasSupabase = Boolean(supabaseUrl && supabaseAnonKey);
+const hasCloudinary = Boolean(cloudinaryCloudName && cloudinaryUploadPreset);
 const allCategory = { label: "All Projects", slug: "all", description: "A complete view of selected design, UI, branding, and motion work." };
 
 const themeOptions = [
@@ -31,6 +38,7 @@ const animationOptions = [
 const state = {
   data: loadData(),
   visitorSettings: loadVisitorSettings(),
+  dataStatus: hasSupabase ? "Connecting to Supabase..." : "Using bundled project data.",
   settingsOpen: false,
   lightboxProject: null,
   lightboxIndex: 0,
@@ -89,6 +97,96 @@ function mergeDefaults(data) {
 
 function saveData() {
   localStorage.setItem(storageKey, JSON.stringify(state.data));
+  if (hasSupabase && state.authenticated) {
+    saveDataRemote().catch((error) => {
+      console.warn("Supabase save failed", error);
+    });
+  }
+}
+
+function supabaseHeaders(token = getSupabaseSession()?.access_token) {
+  return {
+    "apikey": supabaseAnonKey,
+    "Authorization": `Bearer ${token || supabaseAnonKey}`,
+    "Content-Type": "application/json"
+  };
+}
+
+async function supabaseRequest(path, options = {}) {
+  if (!hasSupabase) throw new Error("Supabase is not configured.");
+  const response = await fetch(`${supabaseUrl}${path}`, {
+    ...options,
+    headers: {
+      ...supabaseHeaders(options.token),
+      ...(options.headers || {})
+    }
+  });
+  if (!response.ok) {
+    let message = `Supabase request failed (${response.status}).`;
+    try {
+      const body = await response.json();
+      message = body.message || body.error_description || body.error || message;
+    } catch (error) {
+      message = response.statusText || message;
+    }
+    throw new Error(message);
+  }
+  if (response.status === 204) return null;
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function loadDataRemote() {
+  if (!hasSupabase) return;
+  try {
+    const rows = await supabaseRequest(`/rest/v1/portfolio_content?id=eq.${contentRowId}&select=data&limit=1`, {
+      token: supabaseAnonKey
+    });
+    if (Array.isArray(rows) && rows[0]?.data) {
+      state.data = mergeDefaults(rows[0].data);
+      localStorage.setItem(storageKey, JSON.stringify(state.data));
+      state.dataStatus = "Loaded live content from Supabase.";
+    } else {
+      state.dataStatus = "Supabase is connected. Seed data is showing until admin saves content.";
+    }
+  } catch (error) {
+    state.dataStatus = `Using bundled data. Supabase load failed: ${error.message}`;
+  }
+  applySettings();
+  render();
+}
+
+async function saveDataRemote() {
+  const session = getSupabaseSession();
+  if (!session?.access_token) throw new Error("Please login with Supabase admin access before saving.");
+
+  const payload = {
+    id: contentRowId,
+    data: state.data,
+    updated_at: new Date().toISOString()
+  };
+
+  await supabaseRequest("/rest/v1/portfolio_content?on_conflict=id", {
+    method: "POST",
+    token: session.access_token,
+    headers: {
+      "Prefer": "resolution=merge-duplicates"
+    },
+    body: JSON.stringify(payload)
+  });
+  state.dataStatus = "Saved live content to Supabase.";
+}
+
+async function saveDataAndRender(note, successMessage = "Saved to Supabase.") {
+  localStorage.setItem(storageKey, JSON.stringify(state.data));
+  if (note) note.textContent = hasSupabase ? "Saving to Supabase..." : "Saved locally.";
+  if (hasSupabase) {
+    await saveDataRemote();
+    if (note) note.textContent = successMessage;
+  } else if (note) {
+    note.textContent = "Saved locally. Add Supabase env vars to persist changes on Vercel.";
+  }
+  render();
 }
 
 function loadVisitorSettings() {
@@ -106,6 +204,10 @@ function saveVisitorSettings() {
 }
 
 function isAuthenticated() {
+  if (hasSupabase) {
+    const session = getSupabaseSession();
+    return Boolean(session?.access_token && session.expires_at && Date.now() < session.expires_at);
+  }
   try {
     const session = JSON.parse(sessionStorage.getItem(authKey) || "null");
     if (!session?.authenticated || !session?.expiresAt || Date.now() > session.expiresAt) {
@@ -124,6 +226,53 @@ function setAdminSession() {
     authenticated: true,
     expiresAt: Date.now() + adminSessionMs
   }));
+}
+
+function getSupabaseSession() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem(authKey) || "null");
+    if (!session?.access_token || !session?.expires_at || Date.now() > session.expires_at) {
+      sessionStorage.removeItem(authKey);
+      return null;
+    }
+    return session;
+  } catch (error) {
+    sessionStorage.removeItem(authKey);
+    return null;
+  }
+}
+
+function setSupabaseSession(session) {
+  sessionStorage.setItem(authKey, JSON.stringify({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+    expires_at: Date.now() + Number(session.expires_in || 3600) * 1000,
+    email: session.user?.email || ""
+  }));
+}
+
+async function signInAdmin(email, password) {
+  if (!hasSupabase) {
+    if (!(await passwordMatches(password))) throw new Error("Incorrect password. Try again.");
+    setAdminSession();
+    return;
+  }
+  const result = await supabaseRequest("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    token: supabaseAnonKey,
+    body: JSON.stringify({ email, password })
+  });
+  setSupabaseSession(result);
+}
+
+async function updateSupabasePassword(password) {
+  const session = getSupabaseSession();
+  if (!session?.access_token) throw new Error("Login again before changing the password.");
+  await supabaseRequest("/auth/v1/user", {
+    method: "PUT",
+    token: session.access_token,
+    body: JSON.stringify({ password })
+  });
 }
 
 async function hashPassword(value) {
@@ -805,10 +954,11 @@ function Contact({ compact = false } = {}) {
 
 function LoginPage() {
   return `
-    ${PageIntro("Login", "Admin Access", "Private access for updating portfolio content.")}
+    ${PageIntro("Login", "Admin Access", hasSupabase ? "Login with your Supabase admin user to update live portfolio content." : "Private access for updating portfolio content.")}
     <section class="section compact-section admin-page">
       <div class="container login-card reveal">
         <form data-login>
+          ${hasSupabase ? `<label>Email<input type="email" name="email" autocomplete="email" required /></label>` : ""}
           <label>Password<input type="password" name="password" autocomplete="current-password" required /></label>
           <button class="btn primary" type="submit">Login ${icons.lock}</button>
           <p class="form-note" aria-live="polite"></p>
@@ -827,6 +977,7 @@ function Admin() {
     ${PageIntro("Admin Dashboard", "Private Dashboard", "Add, edit, and delete dynamic portfolio content.", `<button class="btn ghost" data-action="logout">Logout</button>`)}
     <section class="section compact-section admin-page">
       <div class="container">
+        <p class="admin-status">${escapeHtml(state.dataStatus)} ${hasCloudinary ? "Cloudinary uploads enabled." : "Cloudinary uploads not configured."}</p>
         <div class="admin-tabs">
           ${tabs.map((tab) => `<button class="${state.adminTab === tab ? "active" : ""}" data-admin-tab="${tab}">${tab}</button>`).join("")}
         </div>
@@ -854,7 +1005,7 @@ function CVEditor() {
         <p class="eyebrow">Current CV</p>
         <h3>${escapeHtml(fileName)}</h3>
         <p>${escapeHtml(p.cv)}</p>
-        <p class="form-note">Production note: on Vercel, replace the committed file in <strong>public/assets/cv/</strong> and use a path like <strong>/assets/cv/Mudasar-CV.pdf</strong>. Browser uploads are local only.</p>
+        <p class="form-note">${hasCloudinary ? "PDF uploads are stored in Cloudinary and saved to Supabase." : "Cloudinary is not configured. Paste a hosted PDF URL or add Cloudinary env vars."}</p>
       </div>
       <div class="cv-actions">
         <label class="btn primary upload-label">
@@ -900,7 +1051,7 @@ function PersonalEditor() {
       <div>
         <p class="eyebrow">Profile Picture</p>
         <h3>Current profile image</h3>
-        <p>For Vercel, commit your image in <strong>public/assets/profile/</strong> and use a URL like <strong>/assets/profile/profile.webp</strong>. Browser uploads preview locally only and do not persist after deployment.</p>
+        <p>${hasCloudinary ? "Uploads are stored in Cloudinary and saved to Supabase." : "Cloudinary is not configured. Paste a hosted image URL or add Cloudinary env vars."}</p>
         <div class="profile-upload-actions">
           <label class="btn soft upload-label">Upload / Change Picture
             <input type="file" accept="image/jpeg,image/png,image/webp" data-profile-upload />
@@ -922,6 +1073,7 @@ function PersonalEditor() {
       <input name="photo" placeholder="/assets/profile/profile.webp or hosted image URL" value="${escapeHtml(p.photo)}" />
       <textarea name="summary" rows="4" placeholder="Profile summary" required>${escapeHtml(p.summary)}</textarea>
       <button class="btn primary" type="submit">Save Personal Details</button>
+      <p class="form-note" aria-live="polite"></p>
     </form>
     <div class="admin-subhead">
       <h3>Other Social Links</h3>
@@ -1029,7 +1181,7 @@ function ProjectEditor() {
       <select name="category" required>${categories.map((category) => `<option value="${category.label}">${category.label}</option>`).join("")}</select>
       <input name="description" placeholder="Description" required />
       <input name="tools" placeholder="Tools used" required />
-      <p class="form-note">Production image tip: commit project images in <strong>public/assets/projects/</strong> and paste paths like <strong>/assets/projects/project-name.webp</strong>. File uploads are browser-local previews and will not become Vercel files.</p>
+      <p class="form-note">${hasCloudinary ? "Selected files upload to Cloudinary. URLs are saved to Supabase with the project." : "Cloudinary is not configured. Paste hosted image/video URLs, or add Cloudinary env vars to enable uploads."}</p>
       <label>Image 1
         <input name="image1" placeholder="/assets/projects/project-main.webp or hosted image URL" />
         <input name="imageFile1" type="file" accept="image/*" />
@@ -1042,7 +1194,10 @@ function ProjectEditor() {
         <input name="image3" placeholder="/assets/projects/project-3.webp or hosted image URL" />
         <input name="imageFile3" type="file" accept="image/*" />
       </label>
-      <input name="media" placeholder="Video URL: MP4, YouTube, or Vimeo. Keep blank for image project." />
+      <label>Video
+        <input name="media" placeholder="Video URL: MP4, YouTube, Vimeo, or Cloudinary URL. Keep blank for image project." />
+        <input name="mediaFile" type="file" accept="video/mp4,video/webm,video/quicktime,video/*" />
+      </label>
       <select name="mediaType"><option>image</option><option>video</option></select>
       <button class="btn primary" type="submit">${icons.plus} Add Project</button>
       <p class="form-note" aria-live="polite"></p>
@@ -1231,14 +1386,18 @@ function bindEvents() {
 
   document.querySelector("[data-login]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const password = new FormData(event.currentTarget).get("password");
-    if (await passwordMatches(password)) {
+    const form = event.currentTarget;
+    const note = form.querySelector(".form-note");
+    const data = new FormData(form);
+    try {
+      note.textContent = "Signing in...";
+      await signInAdmin(String(data.get("email") || "").trim(), String(data.get("password") || ""));
       state.authenticated = true;
-      setAdminSession();
       setRoute("/admin");
       return;
+    } catch (error) {
+      note.textContent = error.message || "Login failed. Try again.";
     }
-    event.currentTarget.querySelector(".form-note").textContent = "Incorrect password. Try again.";
   });
 
   document.querySelector("[data-action='logout']")?.addEventListener("click", () => {
@@ -1262,7 +1421,7 @@ function bindEvents() {
     const currentPassword = String(data.get("currentPassword") || "");
     const newPassword = String(data.get("newPassword") || "").trim();
 
-    if (newPassword && !(await passwordMatches(currentPassword))) {
+    if (!hasSupabase && newPassword && !(await passwordMatches(currentPassword))) {
       note.textContent = "Current password is incorrect. Default display settings were not saved.";
       return;
     }
@@ -1272,13 +1431,16 @@ function bindEvents() {
     state.data.settings.defaultAnimation = data.get("defaultAnimation");
 
     if (newPassword) {
-      state.data.settings.adminPasswordHash = await hashPassword(newPassword);
-      setAdminSession();
+      if (hasSupabase) {
+        await updateSupabasePassword(newPassword);
+      } else {
+        state.data.settings.adminPasswordHash = await hashPassword(newPassword);
+        setAdminSession();
+      }
     }
 
-    saveData();
     applySettings();
-    note.textContent = newPassword ? "Admin settings and password saved." : "Admin display defaults saved.";
+    await saveDataAndRender(note, newPassword ? "Admin settings and password saved." : "Admin display defaults saved.");
   });
 
   document.querySelector("[data-replace-cv]")?.addEventListener("click", () => {
@@ -1294,7 +1456,7 @@ function bindEvents() {
     uploadCV(file, note);
   });
 
-  document.querySelector("[data-save-personal]")?.addEventListener("submit", (event) => {
+  document.querySelector("[data-save-personal]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     Object.assign(state.data.profile, {
@@ -1309,8 +1471,7 @@ function bindEvents() {
       photo: String(data.get("photo") || "").trim() || portfolioSeed.profile.photo,
       summary: String(data.get("summary") || "").trim()
     });
-    saveData();
-    render();
+    await saveDataAndRender(event.currentTarget.querySelector(".form-note"), "Personal details saved.");
   });
 
   document.querySelector("[data-profile-upload]")?.addEventListener("change", async (event) => {
@@ -1325,9 +1486,8 @@ function bindEvents() {
 
     try {
       if (note) note.textContent = "Updating profile picture...";
-      state.data.profile.photo = await fileToOptimizedDataUrl(file, 640, 0.82);
-      saveData();
-      render();
+      state.data.profile.photo = await uploadToCloudinary(file, "image");
+      await saveDataAndRender(note, "Profile picture uploaded and saved.");
     } catch (error) {
       if (note) note.textContent = error.message || "Could not update the profile picture.";
     }
@@ -1520,13 +1680,16 @@ async function addProjectFromForm(form) {
       return;
     }
     const images = await projectImagesFromForm(form, data);
+    const mediaFile = form.querySelector("[name='mediaFile']")?.files?.[0];
+    const uploadedVideo = mediaFile ? await uploadToCloudinary(mediaFile, "video") : "";
+    const media = uploadedVideo || String(data.get("media") || "").trim() || images[0] || "gradient";
     state.data.projects.unshift({
       title: data.get("title"),
       category: data.get("category"),
       description: data.get("description"),
       tools: data.get("tools"),
       mediaType: data.get("mediaType"),
-      media: data.get("media") || images[0] || "gradient",
+      media,
       images
     });
     saveData();
@@ -1578,16 +1741,20 @@ async function uploadCV(file, note) {
     return;
   }
 
-  note.textContent = "Uploading CV...";
-  const body = new FormData();
-  body.append("cv", file);
-
   try {
+    note.textContent = hasCloudinary ? "Uploading CV to Cloudinary..." : "Uploading CV locally...";
+    if (hasCloudinary) {
+      state.data.profile.cv = await uploadToCloudinary(file, "raw");
+      state.data.profile.cvFileName = file.name;
+      await saveDataAndRender(note, "CV uploaded to Cloudinary and saved to Supabase.");
+      return;
+    }
+
+    const body = new FormData();
+    body.append("cv", file);
     const response = await fetch("/api/upload-cv", {
       method: "POST",
-      headers: {
-        "X-Portfolio-Admin": "true"
-      },
+      headers: { "X-Portfolio-Admin": "true" },
       body
     });
     const result = await response.json();
@@ -1595,12 +1762,28 @@ async function uploadCV(file, note) {
 
     state.data.profile.cv = result.path;
     state.data.profile.cvFileName = result.fileName;
-    saveData();
-    note.textContent = "CV replaced successfully. The public Download CV button now uses the latest PDF.";
-    setTimeout(render, 700);
+    await saveDataAndRender(note, "CV replaced successfully.");
   } catch (error) {
-    note.textContent = error.message || "Could not upload the CV. Make sure the local dev server is running.";
+    note.textContent = error.message || "Could not upload the CV.";
   }
+}
+
+async function uploadToCloudinary(file, resourceType = "auto") {
+  if (!hasCloudinary) {
+    throw new Error("Cloudinary is not configured. Add VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET.");
+  }
+  const body = new FormData();
+  body.append("file", file);
+  body.append("upload_preset", cloudinaryUploadPreset);
+  body.append("folder", "mudasar-portfolio");
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/${resourceType}/upload`, {
+    method: "POST",
+    body
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message || "Cloudinary upload failed.");
+  return result.secure_url;
 }
 
 function fileToOptimizedDataUrl(file, maxSize = 1200, quality = 0.82) {
@@ -1634,7 +1817,7 @@ async function projectImagesFromForm(form, data) {
     const file = form.querySelector(`[name="imageFile${index}"]`)?.files?.[0];
     if (file) {
       if (!file.type.startsWith("image/")) throw new Error("Only image files are accepted for project images.");
-      images.push(await fileToOptimizedDataUrl(file, 1400, 0.82));
+      images.push(await uploadToCloudinary(file, "image"));
     } else if (url) {
       images.push(url);
     }
@@ -1694,3 +1877,4 @@ function revealOnScroll() {
 }
 
 render();
+loadDataRemote();
