@@ -321,16 +321,6 @@ async function signInAdmin(email, password) {
   setSupabaseSession(result);
 }
 
-async function updateSupabasePassword(password) {
-  const session = getSupabaseSession();
-  if (!session?.access_token) throw new Error("Login again before changing the password.");
-  await supabaseRequest("/auth/v1/user", {
-    method: "PUT",
-    token: session.access_token,
-    body: JSON.stringify({ password })
-  });
-}
-
 async function hashPassword(value) {
   const bytes = new TextEncoder().encode(String(value || ""));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -1100,8 +1090,10 @@ function AdminSettingsEditor() {
   const settings = state.data.settings;
   return `
     <form class="admin-form multi settings-form" data-save-admin-settings>
-      <label>Current admin password<input name="currentPassword" type="password" autocomplete="current-password" /></label>
-      <label>New admin password<input name="newPassword" type="password" autocomplete="new-password" /></label>
+      <div class="admin-status">
+        Manage password securely through Supabase authentication.
+        <button class="btn soft" type="button" data-password-reset-info>Reset Password</button>
+      </div>
       <label>Default website theme<select name="defaultTheme">${optionList(themeOptions, settings.defaultTheme)}</select></label>
       <label>Default layout<select name="defaultLayout">${optionList(layoutOptions, settings.defaultLayout)}</select></label>
       <label>Default animation<select name="defaultAnimation">${optionList(animationOptions, settings.defaultAnimation)}</select></label>
@@ -1521,29 +1513,20 @@ function bindEvents() {
     const form = event.currentTarget;
     const data = new FormData(form);
     const note = form.querySelector(".form-note");
-    const currentPassword = String(data.get("currentPassword") || "");
-    const newPassword = String(data.get("newPassword") || "").trim();
-
-    if (!hasSupabase && newPassword && !(await passwordMatches(currentPassword))) {
-      note.textContent = "Current password is incorrect. Default display settings were not saved.";
-      return;
-    }
 
     state.data.settings.defaultTheme = data.get("defaultTheme");
     state.data.settings.defaultLayout = data.get("defaultLayout");
     state.data.settings.defaultAnimation = data.get("defaultAnimation");
 
-    if (newPassword) {
-      if (hasSupabase) {
-        await updateSupabasePassword(newPassword);
-      } else {
-        state.data.settings.adminPasswordHash = await hashPassword(newPassword);
-        setAdminSession();
-      }
-    }
-
     applySettings();
-    await saveDataAndRender(note, newPassword ? "Admin settings and password saved." : "Admin display defaults saved.");
+    await saveDataAndRender(note, "Admin display defaults saved.");
+  });
+
+  document.querySelector("[data-password-reset-info]")?.addEventListener("click", () => {
+    const note = document.querySelector("[data-save-admin-settings] .form-note");
+    if (note) {
+      note.textContent = "Use Supabase Authentication to send a password recovery email. The recovery link opens this website's Reset Password screen.";
+    }
   });
 
   document.querySelector("[data-replace-cv]")?.addEventListener("click", () => {
