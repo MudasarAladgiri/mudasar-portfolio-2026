@@ -76,6 +76,17 @@ function mergeDefaults(data) {
   }
   delete merged.settings.adminPassword;
   Object.assign(merged.profile, data.profile || {});
+  Object.assign(merged.about, data.about || {});
+  if (Array.isArray(data.about?.skillGroups)) {
+    merged.about.skillGroups = data.about.skillGroups
+      .map((group) => ({
+        title: String(group.title || "Skill Group").trim(),
+        skills: Array.isArray(group.skills) ? group.skills.map((skill) => String(skill || "").trim()).filter(Boolean) : []
+      }))
+      .filter((group) => group.title || group.skills.length);
+  } else {
+    merged.about.skillGroups = portfolioSeed.about.skillGroups;
+  }
   if (
     !data.profile?.photo ||
     data.profile.photo === "/assets/profile-photo.svg" ||
@@ -478,6 +489,18 @@ function isUniqueCategorySlug(slug, currentIndex = -1) {
   return projectCategories().every((category, index) => index === currentIndex || category.slug !== slug);
 }
 
+function ensureAboutSkillGroups() {
+  if (!state.data.about) state.data.about = structuredClone(portfolioSeed.about);
+  if (!Array.isArray(state.data.about.skillGroups)) state.data.about.skillGroups = [];
+  return state.data.about.skillGroups;
+}
+
+function moveArrayItem(items, index, direction) {
+  const nextIndex = index + direction;
+  if (!Array.isArray(items) || index < 0 || nextIndex < 0 || index >= items.length || nextIndex >= items.length) return;
+  [items[index], items[nextIndex]] = [items[nextIndex], items[index]];
+}
+
 function projectImages(project) {
   const images = Array.isArray(project.images)
     ? project.images.map((image) => String(image || "").trim()).filter(Boolean).slice(0, 3)
@@ -685,27 +708,23 @@ function Hero() {
 }
 
 function About({ compact = false } = {}) {
-  const groups = [
-    ["Adobe & Design", ["Adobe Illustrator", "Photoshop", "InDesign", "Premiere Pro", "After Effects"]],
-    ["UI / UX", ["Figma", "Adobe XD", "Wireframing", "Website UI Layout", "UI/UX"]],
-    ["Frontend", ["HTML", "CSS", "basic JavaScript", "Responsive layouts"]],
-    ["Brand Work", ["Branding", "Brochures", "Social media creatives", "Logo design"]]
-  ];
+  const about = state.data.about || portfolioSeed.about;
+  const groups = Array.isArray(about.skillGroups) && about.skillGroups.length ? about.skillGroups : portfolioSeed.about.skillGroups;
   return `
-    ${compact ? "" : PageIntro("About Me", "Profile", "A focused look at my creative background, design strengths, and working style.")}
+    ${compact ? "" : PageIntro(about.label || "About Me", "Profile", "A focused look at my creative background, design strengths, and working style.")}
     <section class="section about ${compact ? "compact-section" : ""}">
       <div class="container two-col">
         <div class="section-copy reveal">
-          <p class="eyebrow">About Me</p>
-          <h2>Design that makes products clear, memorable, and easy to use.</h2>
-          <p>${state.data.profile.summary}</p>
-          <p>I combine graphic design craft with frontend thinking, so campaigns, brochures, web layouts, and UI concepts feel polished from first glance to final click.</p>
+          <p class="eyebrow">${escapeHtml(about.label || "About Me")}</p>
+          <h2>${escapeHtml(about.headline || portfolioSeed.about.headline)}</h2>
+          <p>${escapeHtml(about.paragraphOne || state.data.profile.summary)}</p>
+          <p>${escapeHtml(about.paragraphTwo || portfolioSeed.about.paragraphTwo)}</p>
         </div>
         <div class="skill-groups reveal">
-          ${groups.map(([title, items]) => `
+          ${groups.map((group) => `
             <article class="skill-card">
-              <h3>${title}</h3>
-              <div>${items.map((skill) => `<span>${skill}</span>`).join("")}</div>
+              <h3>${escapeHtml(group.title)}</h3>
+              <div>${(group.skills || []).map((skill) => `<span>${escapeHtml(skill)}</span>`).join("")}</div>
             </article>
           `).join("")}
         </div>
@@ -1037,7 +1056,7 @@ function Admin() {
   if (state.authenticated && !isAuthenticated()) state.authenticated = false;
   if (!state.authenticated) return LoginPage();
 
-  const tabs = ["settings", "personal", "cv", "experience", "courses", "certifications", "skills", "projects", "services"];
+  const tabs = ["settings", "personal", "about", "cv", "experience", "courses", "certifications", "skills", "projects", "services"];
   return `
     ${PageIntro("Admin Dashboard", "Private Dashboard", "Add, edit, and delete dynamic portfolio content.", `<button class="btn ghost" data-action="logout">Logout</button>`)}
     <section class="section compact-section admin-page">
@@ -1055,6 +1074,7 @@ function Admin() {
 function AdminTab() {
   if (state.adminTab === "settings") return AdminSettingsEditor();
   if (state.adminTab === "personal") return PersonalEditor();
+  if (state.adminTab === "about") return AboutEditor();
   if (state.adminTab === "cv") return CVEditor();
   if (state.adminTab === "experience") return ExperienceEditor();
   if (state.adminTab === "projects") return ProjectEditor();
@@ -1105,6 +1125,59 @@ function AdminSettingsEditor() {
       <p>These details power the hero, contact page, WhatsApp links, email links, LinkedIn button, and footer text.</p>
     </div>
     ${PersonalEditor()}
+  `;
+}
+
+function AboutEditor() {
+  const about = state.data.about || portfolioSeed.about;
+  const groups = Array.isArray(about.skillGroups) ? about.skillGroups : [];
+  return `
+    <form class="admin-form multi about-form" data-save-about>
+      <input name="label" placeholder="About section label" value="${escapeHtml(about.label || "")}" required />
+      <input name="headline" placeholder="Main headline" value="${escapeHtml(about.headline || "")}" required />
+      <textarea name="paragraphOne" rows="4" placeholder="First paragraph" required>${escapeHtml(about.paragraphOne || "")}</textarea>
+      <textarea name="paragraphTwo" rows="4" placeholder="Second paragraph" required>${escapeHtml(about.paragraphTwo || "")}</textarea>
+      <button class="btn primary" type="submit">Save About Content</button>
+      <p class="form-note" aria-live="polite"></p>
+    </form>
+    <div class="admin-subhead">
+      <h3>Skill Group Cards</h3>
+      <p>Add, edit, delete, and reorder the skill cards shown in the public About section.</p>
+    </div>
+    <form class="admin-form" data-add-skill-group>
+      <input name="title" placeholder="New group title" required />
+      <input name="skills" placeholder="Skill tags, comma separated" />
+      <button class="btn primary" type="submit">${icons.plus} Add Skill Group</button>
+      <p class="form-note" aria-live="polite"></p>
+    </form>
+    <div class="admin-list skill-group-admin-list">
+      ${groups.map((group, groupIndex) => `
+        <article class="skill-group-admin-item">
+          <p><strong>${escapeHtml(group.title)}</strong><small>${(group.skills || []).map(escapeHtml).join(", ") || "No skill tags yet"}</small></p>
+          <div>
+            <button data-move-skill-group="${groupIndex}" data-direction="-1" ${groupIndex === 0 ? "disabled" : ""}>Up</button>
+            <button data-move-skill-group="${groupIndex}" data-direction="1" ${groupIndex === groups.length - 1 ? "disabled" : ""}>Down</button>
+            <button data-edit-skill-group="${groupIndex}">${icons.edit}</button>
+            <button data-delete-skill-group="${groupIndex}">${icons.trash}</button>
+          </div>
+          <form class="admin-form skill-tag-form" data-add-skill-tag="${groupIndex}">
+            <input name="skill" placeholder="Add skill tag" required />
+            <button class="btn soft" type="submit">${icons.plus} Add Tag</button>
+          </form>
+          <div class="tag-admin-list">
+            ${(group.skills || []).map((skill, skillIndex) => `
+              <span>
+                ${escapeHtml(skill)}
+                <button data-move-skill-tag="${groupIndex}" data-tag-index="${skillIndex}" data-direction="-1" ${skillIndex === 0 ? "disabled" : ""}>Up</button>
+                <button data-move-skill-tag="${groupIndex}" data-tag-index="${skillIndex}" data-direction="1" ${skillIndex === (group.skills || []).length - 1 ? "disabled" : ""}>Down</button>
+                <button data-edit-skill-tag="${groupIndex}" data-tag-index="${skillIndex}">${icons.edit}</button>
+                <button data-delete-skill-tag="${groupIndex}" data-tag-index="${skillIndex}">${icons.trash}</button>
+              </span>
+            `).join("") || `<small>No tags yet.</small>`}
+          </div>
+        </article>
+      `).join("") || `<p class="empty">No skill groups yet. Add one above.</p>`}
+    </div>
   `;
 }
 
@@ -1527,6 +1600,97 @@ function bindEvents() {
     if (note) {
       note.textContent = "Use Supabase Authentication to send a password recovery email. The recovery link opens this website's Reset Password screen.";
     }
+  });
+
+  document.querySelector("[data-save-about]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    state.data.about = {
+      ...(state.data.about || structuredClone(portfolioSeed.about)),
+      label: String(data.get("label") || "").trim(),
+      headline: String(data.get("headline") || "").trim(),
+      paragraphOne: String(data.get("paragraphOne") || "").trim(),
+      paragraphTwo: String(data.get("paragraphTwo") || "").trim()
+    };
+    await saveDataAndRender(form.querySelector(".form-note"), "About content saved.");
+  });
+
+  document.querySelector("[data-add-skill-group]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    ensureAboutSkillGroups().push({
+      title: String(data.get("title") || "").trim(),
+      skills: parseBadges(data.get("skills"))
+    });
+    await saveDataAndRender(form.querySelector(".form-note"), "Skill group added.");
+  });
+
+  document.querySelectorAll("[data-edit-skill-group]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const index = Number(button.dataset.editSkillGroup);
+      const group = ensureAboutSkillGroups()[index];
+      const title = prompt("Skill group title", group.title);
+      if (!title) return;
+      group.title = title.trim();
+      await saveDataAndRender(null, "Skill group updated.");
+    });
+  });
+
+  document.querySelectorAll("[data-delete-skill-group]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const index = Number(button.dataset.deleteSkillGroup);
+      if (!confirm("Delete this skill group card?")) return;
+      ensureAboutSkillGroups().splice(index, 1);
+      await saveDataAndRender(null, "Skill group deleted.");
+    });
+  });
+
+  document.querySelectorAll("[data-move-skill-group]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      moveArrayItem(ensureAboutSkillGroups(), Number(button.dataset.moveSkillGroup), Number(button.dataset.direction));
+      await saveDataAndRender(null, "Skill groups reordered.");
+    });
+  });
+
+  document.querySelectorAll("[data-add-skill-tag]").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const group = ensureAboutSkillGroups()[Number(form.dataset.addSkillTag)];
+      const skill = String(new FormData(form).get("skill") || "").trim();
+      if (!skill) return;
+      group.skills = Array.isArray(group.skills) ? group.skills : [];
+      group.skills.push(skill);
+      await saveDataAndRender(null, "Skill tag added.");
+    });
+  });
+
+  document.querySelectorAll("[data-edit-skill-tag]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const group = ensureAboutSkillGroups()[Number(button.dataset.editSkillTag)];
+      const index = Number(button.dataset.tagIndex);
+      const next = prompt("Skill tag", group.skills[index]);
+      if (!next) return;
+      group.skills[index] = next.trim();
+      await saveDataAndRender(null, "Skill tag updated.");
+    });
+  });
+
+  document.querySelectorAll("[data-delete-skill-tag]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const group = ensureAboutSkillGroups()[Number(button.dataset.deleteSkillTag)];
+      group.skills.splice(Number(button.dataset.tagIndex), 1);
+      await saveDataAndRender(null, "Skill tag deleted.");
+    });
+  });
+
+  document.querySelectorAll("[data-move-skill-tag]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const group = ensureAboutSkillGroups()[Number(button.dataset.moveSkillTag)];
+      moveArrayItem(group.skills, Number(button.dataset.tagIndex), Number(button.dataset.direction));
+      await saveDataAndRender(null, "Skill tags reordered.");
+    });
   });
 
   document.querySelector("[data-replace-cv]")?.addEventListener("click", () => {

@@ -25,6 +25,20 @@ export const portfolioSeed = {
     summary:
       "Creative and detail-oriented Graphic Designer and UI/UX Designer with a Bachelor of Computer Applications. Experienced in branding, social media design, UI wireframing, marketing visuals, web layouts, and digital brand communication."
   },
+  about: {
+    label: "About Me",
+    headline: "Design that makes products clear, memorable, and easy to use.",
+    paragraphOne:
+      "Creative and detail-oriented Graphic Designer and UI/UX Designer with a Bachelor of Computer Applications. Experienced in branding, social media design, UI wireframing, marketing visuals, web layouts, and digital brand communication.",
+    paragraphTwo:
+      "I combine graphic design craft with frontend thinking, so campaigns, brochures, web layouts, and UI concepts feel polished from first glance to final click.",
+    skillGroups: [
+      { title: "Adobe & Design", skills: ["Adobe Illustrator", "Photoshop", "InDesign", "Premiere Pro", "After Effects"] },
+      { title: "UI / UX", skills: ["Figma", "Adobe XD", "Wireframing", "Website UI Layout", "UI/UX"] },
+      { title: "Frontend", skills: ["HTML", "CSS", "basic JavaScript", "Responsive layouts"] },
+      { title: "Brand Work", skills: ["Branding", "Brochures", "Social media creatives", "Logo design"] }
+    ]
+  },
   experience: [
     {
       title: "Graphic Designer",
