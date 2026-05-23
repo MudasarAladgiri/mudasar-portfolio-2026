@@ -3,6 +3,8 @@ import { portfolioSeed } from "./data.js";
 const storageKey = "mudasar-portfolio-data";
 const visitorSettingsKey = "mudasar-visitor-settings";
 const authKey = "mudasar-admin-auth";
+const recoveryKey = "mudasar-password-recovery";
+const loginMessageKey = "mudasar-login-message";
 const formspreeEndpoint = "";
 const adminSessionMs = 30 * 60 * 1000;
 const contentRowId = "main";
@@ -35,6 +37,8 @@ const animationOptions = [
   ["off", "Off"]
 ];
 
+const initialRecoverySession = captureRecoverySessionFromUrl();
+
 const state = {
   data: loadData(),
   visitorSettings: loadVisitorSettings(),
@@ -42,10 +46,11 @@ const state = {
   settingsOpen: false,
   lightboxProject: null,
   lightboxIndex: 0,
-  route: location.pathname,
+  route: initialRecoverySession ? "/reset-password" : location.pathname,
   search: new URLSearchParams(location.search).get("q") || "",
   adminTab: "settings",
-  authenticated: isAuthenticated()
+  authenticated: isAuthenticated(),
+  recoverySession: initialRecoverySession || getRecoverySession()
 };
 
 function loadData() {
@@ -249,6 +254,57 @@ function setSupabaseSession(session) {
     expires_at: Date.now() + Number(session.expires_in || 3600) * 1000,
     email: session.user?.email || ""
   }));
+}
+
+function captureRecoverySessionFromUrl() {
+  const query = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const params = hash.get("access_token") ? hash : query;
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+  const type = params.get("type");
+
+  if (type !== "recovery" || !accessToken) return null;
+
+  const session = {
+    access_token: accessToken,
+    refresh_token: refreshToken || "",
+    token_type: params.get("token_type") || "bearer",
+    expires_at: Date.now() + Number(params.get("expires_in") || 3600) * 1000
+  };
+  sessionStorage.setItem(recoveryKey, JSON.stringify(session));
+  history.replaceState({}, "", "/reset-password");
+  return session;
+}
+
+function getRecoverySession() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem(recoveryKey) || "null");
+    if (!session?.access_token || !session?.expires_at || Date.now() > session.expires_at) {
+      sessionStorage.removeItem(recoveryKey);
+      return null;
+    }
+    return session;
+  } catch (error) {
+    sessionStorage.removeItem(recoveryKey);
+    return null;
+  }
+}
+
+async function updateRecoveryPassword(password) {
+  if (!hasSupabase) throw new Error("Supabase is not configured on this deployment.");
+  const session = state.recoverySession || getRecoverySession();
+  if (!session?.access_token) throw new Error("Recovery session expired. Please request a new password reset link.");
+
+  await supabaseRequest("/auth/v1/user", {
+    method: "PUT",
+    token: session.access_token,
+    body: JSON.stringify({ password })
+  });
+
+  sessionStorage.removeItem(recoveryKey);
+  sessionStorage.setItem(loginMessageKey, "Password updated successfully. Please login with your new password.");
+  state.recoverySession = null;
 }
 
 async function signInAdmin(email, password) {
@@ -953,6 +1009,8 @@ function Contact({ compact = false } = {}) {
 }
 
 function LoginPage() {
+  const message = sessionStorage.getItem(loginMessageKey) || "";
+  if (message) sessionStorage.removeItem(loginMessageKey);
   return `
     ${PageIntro("Login", "Admin Access", hasSupabase ? "Login with your Supabase admin user to update live portfolio content." : "Private access for updating portfolio content.")}
     <section class="section compact-section admin-page">
@@ -961,7 +1019,24 @@ function LoginPage() {
           ${hasSupabase ? `<label>Email<input type="email" name="email" autocomplete="email" required /></label>` : ""}
           <label>Password<input type="password" name="password" autocomplete="current-password" required /></label>
           <button class="btn primary" type="submit">Login ${icons.lock}</button>
-          <p class="form-note" aria-live="polite"></p>
+          <p class="form-note" aria-live="polite">${escapeHtml(message)}</p>
+        </form>
+      </div>
+    </section>
+  `;
+}
+
+function ResetPasswordPage() {
+  const hasSession = Boolean(state.recoverySession || getRecoverySession());
+  return `
+    ${PageIntro("Reset Password", "Supabase Recovery", "Create a new admin password for your portfolio dashboard.")}
+    <section class="section compact-section admin-page">
+      <div class="container login-card reveal">
+        <form data-reset-password>
+          <label>New password<input type="password" name="password" autocomplete="new-password" minlength="8" required /></label>
+          <label>Confirm password<input type="password" name="confirmPassword" autocomplete="new-password" minlength="8" required /></label>
+          <button class="btn primary" type="submit" ${hasSession ? "" : "disabled"}>Update Password ${icons.lock}</button>
+          <p class="form-note" aria-live="polite">${hasSession ? "" : "Recovery session missing or expired. Please request a new password reset link."}</p>
         </form>
       </div>
     </section>
@@ -1250,6 +1325,7 @@ function page() {
   if (state.route === "/services") return Services();
   if (state.route === "/contact") return Contact();
   if (state.route === "/login") return LoginPage();
+  if (state.route === "/reset-password") return ResetPasswordPage();
   if (state.route === "/admin") return Admin();
   return NotFound();
 }
@@ -1397,6 +1473,33 @@ function bindEvents() {
       return;
     } catch (error) {
       note.textContent = error.message || "Login failed. Try again.";
+    }
+  });
+
+  document.querySelector("[data-reset-password]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const note = form.querySelector(".form-note");
+    const data = new FormData(form);
+    const password = String(data.get("password") || "");
+    const confirmPassword = String(data.get("confirmPassword") || "");
+
+    if (password.length < 8) {
+      note.textContent = "Password must be at least 8 characters.";
+      return;
+    }
+    if (password !== confirmPassword) {
+      note.textContent = "Passwords do not match.";
+      return;
+    }
+
+    try {
+      note.textContent = "Updating password...";
+      await updateRecoveryPassword(password);
+      note.textContent = "Password updated successfully. Redirecting to login...";
+      setTimeout(() => setRoute("/login"), 900);
+    } catch (error) {
+      note.textContent = error.message || "Could not update password. Please request a new reset link.";
     }
   });
 
