@@ -1320,6 +1320,49 @@ input:focus, textarea:focus, select:focus {
   border-color: rgba(52, 211, 153, 0.72);
 }
 
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  padding-right: 52px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(110, 231, 183, 0.22);
+  border-radius: 8px;
+  color: var(--mint);
+  background: rgba(5, 46, 31, 0.58);
+  transform: translateY(-50%);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.password-toggle:hover,
+.password-toggle:focus-visible,
+.password-toggle[aria-pressed="true"] {
+  border-color: rgba(52, 211, 153, 0.58);
+  background: rgba(16, 185, 129, 0.16);
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.16);
+}
+
+.password-toggle svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .form-note {
   min-height: 22px;
   margin: 12px 0 0;

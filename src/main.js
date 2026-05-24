@@ -388,7 +388,9 @@ const icons = {
   lock: "[]",
   plus: "+",
   edit: "Edit",
-  trash: "Delete"
+  trash: "Delete",
+  eye: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+  eyeOff: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"></path><path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6"></path><path d="M9.5 5.6A10.8 10.8 0 0 1 12 5c6 0 9.5 7 9.5 7a16.8 16.8 0 0 1-2.7 3.6"></path><path d="M6.7 6.7C4 8.5 2.5 12 2.5 12s3.5 7 9.5 7c1.4 0 2.7-.3 3.8-.8"></path></svg>`
 };
 
 function digitsOnly(value) {
@@ -1026,7 +1028,14 @@ function LoginPage() {
       <div class="container login-card reveal">
         <form data-login>
           ${hasSupabase ? `<label>Email<input type="email" name="email" autocomplete="email" required /></label>` : ""}
-          <label>Password<input type="password" name="password" autocomplete="current-password" required /></label>
+          <label>Password
+            <span class="password-field">
+              <input type="password" name="password" autocomplete="current-password" required data-password-input />
+              <button class="password-toggle" type="button" data-toggle-password aria-label="Show password" aria-pressed="false">
+                ${icons.eye}
+              </button>
+            </span>
+          </label>
           <button class="btn primary" type="submit">Login ${icons.lock}</button>
           <p class="form-note" aria-live="polite">${escapeHtml(message)}</p>
         </form>
@@ -1581,6 +1590,18 @@ function bindEvents() {
     } catch (error) {
       note.textContent = error.message || "Login failed. Try again.";
     }
+  });
+
+  document.querySelector("[data-toggle-password]")?.addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    const input = document.querySelector("[data-password-input]");
+    if (!input) return;
+    const shouldShow = input.type === "password";
+    input.type = shouldShow ? "text" : "password";
+    button.setAttribute("aria-pressed", String(shouldShow));
+    button.setAttribute("aria-label", shouldShow ? "Hide password" : "Show password");
+    button.innerHTML = shouldShow ? icons.eyeOff : icons.eye;
+    input.focus();
   });
 
   document.querySelector("[data-reset-password]")?.addEventListener("submit", async (event) => {
