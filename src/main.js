@@ -1103,6 +1103,48 @@ function CVEditor() {
       </div>
       <p class="form-note" aria-live="polite"></p>
     </div>
+    <div class="admin-subhead">
+      <h3>Education</h3>
+      <p>Add, edit, or delete education items shown on the public Resume page.</p>
+    </div>
+    <form class="admin-form multi" data-add-education>
+      <input name="title" placeholder="Degree / title" required />
+      <input name="institution" placeholder="Institution" required />
+      <input name="period" placeholder="Year / period" required />
+      <button class="btn primary" type="submit">${icons.plus} Add Education</button>
+      <p class="form-note" aria-live="polite"></p>
+    </form>
+    <div class="admin-list">
+      ${(state.data.education || []).map((item, index) => `
+        <article>
+          <p><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.institution)} | ${escapeHtml(item.period)}</small></p>
+          <div>
+            <button data-edit-education="${index}">${icons.edit}</button>
+            <button data-delete-education="${index}">${icons.trash}</button>
+          </div>
+        </article>
+      `).join("") || `<p class="empty">No education items yet.</p>`}
+    </div>
+    <div class="admin-subhead">
+      <h3>Languages</h3>
+      <p>Add, edit, or delete languages shown on the public Resume page.</p>
+    </div>
+    <form class="admin-form" data-add-language>
+      <input name="language" placeholder="Language" required />
+      <button class="btn primary" type="submit">${icons.plus} Add Language</button>
+      <p class="form-note" aria-live="polite"></p>
+    </form>
+    <div class="admin-list">
+      ${(state.data.languages || []).map((language, index) => `
+        <article>
+          <p>${escapeHtml(language)}</p>
+          <div>
+            <button data-edit-language="${index}">${icons.edit}</button>
+            <button data-delete-language="${index}">${icons.trash}</button>
+          </div>
+        </article>
+      `).join("") || `<p class="empty">No languages yet.</p>`}
+    </div>
   `;
 }
 
@@ -1704,6 +1746,74 @@ function bindEvents() {
     }
 
     uploadCV(file, note);
+  });
+
+  document.querySelector("[data-add-education]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    state.data.education = Array.isArray(state.data.education) ? state.data.education : [];
+    state.data.education.push({
+      title: String(data.get("title") || "").trim(),
+      institution: String(data.get("institution") || "").trim(),
+      period: String(data.get("period") || "").trim()
+    });
+    await saveDataAndRender(form.querySelector(".form-note"), "Education item added.");
+  });
+
+  document.querySelectorAll("[data-edit-education]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const index = Number(button.dataset.editEducation);
+      const item = state.data.education[index];
+      const title = prompt("Degree / title", item.title);
+      if (!title) return;
+      const institution = prompt("Institution", item.institution);
+      if (!institution) return;
+      const period = prompt("Year / period", item.period);
+      if (!period) return;
+      Object.assign(item, {
+        title: title.trim(),
+        institution: institution.trim(),
+        period: period.trim()
+      });
+      await saveDataAndRender(null, "Education item updated.");
+    });
+  });
+
+  document.querySelectorAll("[data-delete-education]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!confirm("Delete this education item?")) return;
+      state.data.education.splice(Number(button.dataset.deleteEducation), 1);
+      await saveDataAndRender(null, "Education item deleted.");
+    });
+  });
+
+  document.querySelector("[data-add-language]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const language = String(new FormData(form).get("language") || "").trim();
+    if (!language) return;
+    state.data.languages = Array.isArray(state.data.languages) ? state.data.languages : [];
+    state.data.languages.push(language);
+    await saveDataAndRender(form.querySelector(".form-note"), "Language added.");
+  });
+
+  document.querySelectorAll("[data-edit-language]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const index = Number(button.dataset.editLanguage);
+      const next = prompt("Language", state.data.languages[index]);
+      if (!next) return;
+      state.data.languages[index] = next.trim();
+      await saveDataAndRender(null, "Language updated.");
+    });
+  });
+
+  document.querySelectorAll("[data-delete-language]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      if (!confirm("Delete this language?")) return;
+      state.data.languages.splice(Number(button.dataset.deleteLanguage), 1);
+      await saveDataAndRender(null, "Language deleted.");
+    });
   });
 
   document.querySelector("[data-save-personal]")?.addEventListener("submit", async (event) => {
