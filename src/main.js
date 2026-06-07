@@ -1099,18 +1099,22 @@ function CVEditor() {
         <p class="eyebrow">Current CV</p>
         <h3>${escapeHtml(fileName)}</h3>
         <p>${escapeHtml(p.cv)}</p>
-        <p class="form-note">${hasCloudinary ? "PDF uploads are stored in Cloudinary and saved to Supabase." : "Cloudinary is not configured. Paste a hosted PDF URL or add Cloudinary env vars."}</p>
+        <p class="form-note">Paste any publicly accessible PDF URL from Cloudinary, Google Drive, Dropbox, or another public host.</p>
       </div>
-      <div class="cv-actions">
-        <label class="btn primary upload-label">
-          Upload New CV
-          <input type="file" accept="application/pdf,.pdf" data-cv-file />
+      <form class="admin-form multi cv-url-form" data-save-cv-url>
+        <label>CV filename / title
+          <input name="cvFileName" placeholder="Mudasar-Aladgiri-CV.pdf" value="${escapeHtml(fileName)}" required />
         </label>
-        <button class="btn soft" type="button" data-replace-cv>Replace CV</button>
+        <label>CV URL / PDF URL
+          <input name="cvUrl" type="url" placeholder="https://example.com/Mudasar-CV.pdf" value="${escapeHtml(p.cv)}" required />
+        </label>
+        <button class="btn primary" type="submit">Save CV URL</button>
+        <p class="form-note" aria-live="polite"></p>
+      </form>
+      <div class="cv-actions">
         <a class="btn ghost" href="${p.cv}" target="_blank" rel="noreferrer">View Current CV</a>
-        <a class="btn ghost" href="${p.cv}" download="${escapeHtml(fileName)}">Download Current CV</a>
+        <a class="btn ghost" href="${p.cv}" target="_blank" rel="noreferrer" download="${escapeHtml(fileName)}">Download / Open Current CV</a>
       </div>
-      <p class="form-note" aria-live="polite"></p>
     </div>
     <div class="admin-subhead">
       <h3>Education</h3>
@@ -1756,17 +1760,25 @@ function bindEvents() {
     });
   });
 
-  document.querySelector("[data-replace-cv]")?.addEventListener("click", () => {
-    const input = document.querySelector("[data-cv-file]");
-    const note = document.querySelector(".cv-admin-card .form-note");
-    const file = input?.files?.[0];
+  document.querySelector("[data-save-cv-url]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const note = form.querySelector(".form-note");
+    const cvUrl = String(data.get("cvUrl") || "").trim();
+    const cvFileName = String(data.get("cvFileName") || "").trim();
 
-    if (!file) {
-      note.textContent = "Choose a PDF file first, then click Replace CV.";
+    try {
+      const parsedUrl = new URL(cvUrl);
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+    } catch (error) {
+      note.textContent = "Enter a valid public HTTP or HTTPS PDF URL.";
       return;
     }
 
-    uploadCV(file, note);
+    state.data.profile.cv = cvUrl;
+    state.data.profile.cvFileName = cvFileName;
+    await saveDataAndRender(note, "CV URL saved to Supabase.");
   });
 
   document.querySelector("[data-add-education]")?.addEventListener("submit", async (event) => {
@@ -2114,39 +2126,6 @@ function bindProjectManagementEvents() {
       render();
     });
   });
-}
-
-async function uploadCV(file, note) {
-  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-    note.textContent = "Only PDF files are accepted.";
-    return;
-  }
-
-  try {
-    note.textContent = hasCloudinary ? "Uploading CV to Cloudinary..." : "Uploading CV locally...";
-    if (hasCloudinary) {
-      state.data.profile.cv = await uploadToCloudinary(file, "raw");
-      state.data.profile.cvFileName = file.name;
-      await saveDataAndRender(note, "CV uploaded to Cloudinary and saved to Supabase.");
-      return;
-    }
-
-    const body = new FormData();
-    body.append("cv", file);
-    const response = await fetch("/api/upload-cv", {
-      method: "POST",
-      headers: { "X-Portfolio-Admin": "true" },
-      body
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "CV upload failed.");
-
-    state.data.profile.cv = result.path;
-    state.data.profile.cvFileName = result.fileName;
-    await saveDataAndRender(note, "CV replaced successfully.");
-  } catch (error) {
-    note.textContent = error.message || "Could not upload the CV.";
-  }
 }
 
 async function uploadToCloudinary(file, resourceType = "auto") {

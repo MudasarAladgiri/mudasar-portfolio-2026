@@ -1,11 +1,10 @@
 import { createServer } from "node:http";
-import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
+import { createReadStream, existsSync, statSync } from "node:fs";
 import { extname, join, normalize, resolve } from "node:path";
 import { createGzip } from "node:zlib";
 
 const root = process.cwd();
 const preferredPort = Number(process.env.PORT || 4173);
-const maxCvUploadBytes = 5 * 1024 * 1024;
 
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -49,11 +48,6 @@ function isTextAsset(filePath) {
 function requestHandler(req, res) {
   const url = new URL(req.url || "/", `http://${req.headers.host || `localhost:${preferredPort}`}`);
 
-  if (req.method === "POST" && url.pathname === "/api/upload-cv") {
-    handleCVUpload(req, res);
-    return;
-  }
-
   const cleanPath = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, "");
   let filePath = resolve(root, cleanPath === "/" ? "index.html" : cleanPath.slice(1));
   if (cleanPath.startsWith("/assets/")) {
@@ -88,102 +82,6 @@ function requestHandler(req, res) {
     return;
   }
   stream.pipe(res);
-}
-
-function sendJson(res, status, payload) {
-  res.writeHead(status, securityHeaders("application/json; charset=utf-8"));
-  res.end(JSON.stringify(payload));
-}
-
-function parseMultipart(buffer, boundary) {
-  const delimiter = Buffer.from(`--${boundary}`);
-  const parts = [];
-  let start = buffer.indexOf(delimiter);
-
-  while (start !== -1) {
-    start += delimiter.length;
-    if (buffer[start] === 45 && buffer[start + 1] === 45) break;
-    if (buffer[start] === 13 && buffer[start + 1] === 10) start += 2;
-
-    const headerEnd = buffer.indexOf(Buffer.from("\r\n\r\n"), start);
-    if (headerEnd === -1) break;
-
-    const headers = buffer.slice(start, headerEnd).toString("utf8");
-    let contentStart = headerEnd + 4;
-    let next = buffer.indexOf(delimiter, contentStart);
-    if (next === -1) break;
-    let contentEnd = next - 2;
-    if (contentEnd < contentStart) contentEnd = next;
-
-    parts.push({
-      headers,
-      content: buffer.slice(contentStart, contentEnd)
-    });
-    start = next;
-  }
-
-  return parts;
-}
-
-function handleCVUpload(req, res) {
-  if (req.headers["x-portfolio-admin"] !== "true") {
-    sendJson(res, 403, { error: "Upload request is not authorized." });
-    return;
-  }
-
-  const contentType = req.headers["content-type"] || "";
-  const boundary = contentType.match(/boundary=(.+)$/)?.[1];
-  const declaredLength = Number(req.headers["content-length"] || 0);
-
-  if (!boundary) {
-    sendJson(res, 400, { error: "Missing upload boundary." });
-    return;
-  }
-
-  if (declaredLength > maxCvUploadBytes) {
-    sendJson(res, 413, { error: "CV file is too large. Maximum size is 5MB." });
-    return;
-  }
-
-  const chunks = [];
-  let received = 0;
-  let tooLarge = false;
-  req.on("data", (chunk) => {
-    received += chunk.length;
-    if (received > maxCvUploadBytes) {
-      tooLarge = true;
-      return;
-    }
-    chunks.push(chunk);
-  });
-  req.on("end", () => {
-    if (tooLarge) {
-      if (!res.headersSent) sendJson(res, 413, { error: "CV file is too large. Maximum size is 5MB." });
-      return;
-    }
-    const buffer = Buffer.concat(chunks);
-    const filePart = parseMultipart(buffer, boundary).find((part) => part.headers.includes('name="cv"'));
-    const rawFileName = filePart?.headers.match(/filename="([^"]+)"/)?.[1] || "uploaded-cv.pdf";
-    const fileName = rawFileName.replace(/[^\w .()-]/g, "").slice(0, 120) || "uploaded-cv.pdf";
-
-    if (!filePart || !fileName.toLowerCase().endsWith(".pdf")) {
-      sendJson(res, 400, { error: "Only PDF files are accepted." });
-      return;
-    }
-
-    if (!filePart.content.slice(0, 5).toString("utf8").startsWith("%PDF")) {
-      sendJson(res, 400, { error: "The selected file does not look like a valid PDF." });
-      return;
-    }
-
-    const cvDir = join(root, "public", "assets", "cv");
-    mkdirSync(cvDir, { recursive: true });
-    writeFileSync(join(cvDir, "Mudasar-CV.pdf"), filePart.content);
-    sendJson(res, 200, {
-      path: "/assets/cv/Mudasar-CV.pdf",
-      fileName
-    });
-  });
 }
 
 function listen(port, attempts = 0) {
